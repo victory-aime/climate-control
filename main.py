@@ -65,7 +65,7 @@ def get_clim_status():
         - 0 : éteint
         - 1 : allumé
     """
-    url = f"http://api.thingspeak.com/channels/<CHANNEL_ID>/fields/field3/last.json?api_key={THINGSPEAK_READ_API_KEY}"
+    url = f"http://api.thingspeak.com/channels/2791799/fields/field3/last.json?api_key={THINGSPEAK_READ_API_KEY}"
     try:
         response = urequests.get(url)
         data = response.json()
@@ -81,7 +81,7 @@ def get_target_temperature():
     Retourne :
         - Température cible en float
     """
-    url = f"http://api.thingspeak.com/channels/<CHANNEL_ID>/fields/field4/last.json?api_key={THINGSPEAK_READ_API_KEY}"
+    url = f"http://api.thingspeak.com/channels/2791799/fields/field4/last.json?api_key={THINGSPEAK_READ_API_KEY}"
     try:
         response = urequests.get(url)
         data = response.json()

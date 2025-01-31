@@ -39,9 +39,9 @@ const App = () => {
   const [targetTemp, setTargetTemp] = useState(0);
   const [climStatus, setClimStatus] = useState(0);
 
-  const THINGSPEAK_READ_API_KEY = "<Votre API Key Read>";
-  const THINGSPEAK_WRITE_API_KEY = "<Votre API Key Write>";
-  const CHANNEL_ID = "<Votre Channel ID>";
+  const THINGSPEAK_WRITE_API_KEY = "IKDDZ3P5T31O02D4"; // Clé API d'écriture
+  const THINGSPEAK_READ_API_KEY = "FOQB2Z8U8DY136Q0"; // Clé API de lecture
+  const CHANNEL_ID = "2791799";
 
   // Charger les données depuis ThingSpeak
   const fetchData = async () => {
