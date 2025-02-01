@@ -9,76 +9,50 @@ import {
 } from "react-native";
 import axios from "axios";
 
-const CustomButton = ({
-  title,
-  onPress,
-  climStatus,
-}: {
-  title?: string;
-  climStatus?: number;
-  onPress?: () => void;
-}) => {
-  return (
-    <TouchableOpacity
-      style={{
-        backgroundColor: climStatus === 1 ? "red" : "green",
-        padding: 10,
-        borderRadius: 5,
-        alignItems: "center",
-      }}
-      onPress={onPress}
-    >
-      <Text>{title}</Text>
-    </TouchableOpacity>
-  );
-};
+const THINGSPEAK_WRITE_API_KEY = "IKDDZ3P5T31O02D4";
+const THINGSPEAK_READ_API_KEY = "FOQB2Z8U8DY136Q0";
+const CHANNEL_ID = "2791799";
 
 const App = () => {
   const [currentTemp, setCurrentTemp] = useState(null);
   const [currentHumidity, setCurrentHumidity] = useState(null);
+  const [fakeClimTemp, setFakeClimTemp] = useState(null);
   const [targetTemp, setTargetTemp] = useState(0);
   const [climStatus, setClimStatus] = useState(0);
 
-  const THINGSPEAK_WRITE_API_KEY = "IKDDZ3P5T31O02D4"; // Clé API d'écriture
-  const THINGSPEAK_READ_API_KEY = "FOQB2Z8U8DY136Q0"; // Clé API de lecture
-  const CHANNEL_ID = "2791799";
+  /**
+   * Charger les données depuis ThingSpeak
+   * field 1 recupere la temperature
+   * field 2 recupere l'humidite
+   * field 3 recupere la fake temp de la clim
+   * field 4 recupere l'etat de la clim eteint ou allumee
+   */
 
-  // Charger les données depuis ThingSpeak
   const fetchData = async () => {
     try {
-      const tempResponse = await axios.get(
-        `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.json?api_key=${THINGSPEAK_READ_API_KEY}`
+      const response = await axios.get(
+        `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?api_key=${THINGSPEAK_READ_API_KEY}`
       );
-      const humidityResponse = await axios.get(
-        `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/2/last.json?api_key=${THINGSPEAK_READ_API_KEY}`
-      );
-      const climResponse = await axios.get(
-        `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/3/last.json?api_key=${THINGSPEAK_READ_API_KEY}`
-      );
-      const targetResponse = await axios.get(
-        `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/4/last.json?api_key=${THINGSPEAK_READ_API_KEY}`
-      );
-
-      setCurrentTemp(tempResponse.data.field1);
-      setCurrentHumidity(humidityResponse.data.field2);
-      setClimStatus(parseInt(climResponse.data.field3));
-      setTargetTemp(targetResponse.data.field4);
+      const data = response.data;
+      setCurrentTemp(data.field1);
+      setCurrentHumidity(data.field2);
+      setFakeClimTemp(data.field3);
+      setClimStatus(data.field4);
     } catch (error) {
       console.error("Erreur lors du chargement des données :", error);
     }
   };
 
-  // Envoyer une nouvelle température cible
-  const updateTargetTemperature = async () => {
+  // Mettre à jour la température de la fake clim
+  const updateTargetTemperature = async (newTemp: number) => {
+    setTargetTemp(newTemp);
     try {
       await axios.post("https://api.thingspeak.com/update", {
         api_key: THINGSPEAK_WRITE_API_KEY,
-        field4: targetTemp,
+        field3: newTemp,
       });
-      alert("Température cible mise à jour !");
     } catch (error) {
       console.error("Erreur lors de la mise à jour :", error);
-      setTargetTemp(0);
     }
   };
 
@@ -88,10 +62,9 @@ const App = () => {
       const newStatus = climStatus === 1 ? 0 : 1;
       await axios.post("https://api.thingspeak.com/update", {
         api_key: THINGSPEAK_WRITE_API_KEY,
-        field3: newStatus,
+        field4: newStatus,
       });
       setClimStatus(newStatus);
-      alert(`Climatisation ${newStatus === 1 ? "allumée" : "éteinte"}`);
     } catch (error) {
       console.error("Erreur lors du changement d’état :", error);
     }
@@ -99,74 +72,58 @@ const App = () => {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 60000); // Rafraîchir toutes les 60 secondes
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <>
-      <View style={styles.container}>
-        <View
-          style={{
-            alignItems: "center",
-            justifyContent: "center",
-            marginTop: 20,
-          }}
-        >
-          <Text style={styles.title}>Controle climatisation</Text>
-        </View>
-        <View style={{ marginTop: 50, gap: 10 }}>
-          <Text style={{ color: "white", fontSize: 20 }}>
-            Température actuelle : {currentTemp ?? 0} °C
-          </Text>
-          <Text style={{ color: "white", fontSize: 20 }}>
-            Humidité actuelle : {currentHumidity ?? 8} %
-          </Text>
-        </View>
-        <View
-          style={{
-            marginTop: 100,
-            flexDirection: "row",
-            gap: 10,
-            alignItems: "center",
-            justifyContent: "space-around",
-          }}
-        >
-          <Button
-            title="up"
-            onPress={() => {
-              setTargetTemp(targetTemp + 1);
-              updateTargetTemperature();
-            }}
-          />
-          <Text style={{ fontSize: 36, color: "white" }}>{targetTemp} °C</Text>
-          <Button
-            title="down"
-            onPress={() => {
-              setTargetTemp(targetTemp - 1);
-              updateTargetTemperature();
-            }}
-          />
-        </View>
-        <View style={{ marginTop: 50 }}>
-          <CustomButton
-            onPress={toggleClim}
-            climStatus={climStatus}
-            title={
-              climStatus === 1
-                ? "Éteindre la climatisation"
-                : "Allumer la climatisation"
-            }
-          />
-        </View>
+    <View style={styles.container}>
+      <Text style={styles.title}>Contrôle Climatisation</Text>
+      <Text style={styles.info}>
+        Température actuelle : {currentTemp ?? "--"} °C
+      </Text>
+      <Text style={styles.info}>
+        Humidité actuelle : {currentHumidity ?? "--"} %
+      </Text>
+      <Text style={styles.info}>
+        Température Clim (Fake) : {fakeClimTemp ?? "--"} °C
+      </Text>
+
+      <View style={styles.tempControl}>
+        <Button
+          title="-"
+          onPress={() => updateTargetTemperature(targetTemp - 1)}
+        />
+        <Text style={styles.tempText}>{targetTemp} °C</Text>
+        <Button
+          title="+"
+          onPress={() => updateTargetTemperature(targetTemp + 1)}
+        />
       </View>
+
+      <TouchableOpacity
+        style={[
+          styles.climButton,
+          { backgroundColor: climStatus === 1 ? "red" : "green" },
+        ]}
+        onPress={toggleClim}
+      >
+        <Text style={styles.climButtonText}>
+          {climStatus === 1
+            ? "Éteindre la climatisation"
+            : "Allumer la climatisation"}
+        </Text>
+      </TouchableOpacity>
+
       <StatusBar />
-    </>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 18,
+    padding: 20,
     justifyContent: "center",
     backgroundColor: "#060021",
   },
@@ -174,13 +131,36 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "#fff",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 10,
+    textAlign: "center",
     marginBottom: 20,
-    borderRadius: 5,
+  },
+  info: {
+    fontSize: 18,
+    color: "white",
+    textAlign: "center",
+    marginVertical: 5,
+  },
+  tempControl: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  tempText: {
+    fontSize: 30,
+    color: "white",
+    marginHorizontal: 15,
+  },
+  climButton: {
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  climButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
   },
 });
 
